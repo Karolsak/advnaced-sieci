@@ -3,6 +3,7 @@
 Example 9.7: Power Factor Correction with Dynamic ODE Solver
 3-phase motor with capacitor bank for unity power factor
 Includes real-time simulation with RK45 and Euler methods
+Separate window for large, detailed plots
 """
 
 import tkinter as tk
@@ -18,8 +19,8 @@ import math
 class PowerFactorCorrectionSimulator:
     def __init__(self, root):
         self.root = root
-        self.root.title("Example 9.7: Power Factor Correction - Dynamic Simulator")
-        self.root.geometry("1400x900")
+        self.root.title("Example 9.7: Power Factor Correction - Control Panel")
+        self.root.geometry("900x650")
 
         # Make window resizable
         self.root.rowconfigure(0, weight=1)
@@ -39,6 +40,17 @@ class PowerFactorCorrectionSimulator:
         self.capacitance_data = []
         self.current_data = []
 
+        # Visualization window
+        self.viz_window = None
+        self.fig = None
+        self.canvas = None
+        self.ax1 = None
+        self.ax2 = None
+        self.ax3 = None
+        self.ax4 = None
+        self.ax5 = None
+        self.ax6 = None
+
         # Create main container
         self.main_container = ttk.Frame(root)
         self.main_container.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
@@ -47,14 +59,13 @@ class PowerFactorCorrectionSimulator:
 
         # Create GUI components
         self.create_control_panel()
-        self.create_visualization_panel()
         self.create_results_panel()
 
         # Initialize values
         self.update_calculations()
 
-        # Bind resize event
-        self.root.bind('<Configure>', self.on_resize)
+        # Create visualization window automatically
+        self.create_visualization_window()
 
     def create_control_panel(self):
         """Create control panel with sliders and buttons"""
@@ -163,18 +174,37 @@ class PowerFactorCorrectionSimulator:
                                        command=self.reset_simulation)
         self.reset_button.pack(side="left", padx=5)
 
-    def create_visualization_panel(self):
-        """Create visualization panel with dynamic graphs"""
-        viz_frame = ttk.LabelFrame(self.main_container, text="Real-Time Visualization", padding=10)
-        viz_frame.grid(row=1, column=0, sticky="nsew", padx=5, pady=5)
+        # Show/Hide plots button
+        self.toggle_plots_button = ttk.Button(button_frame, text="Show Plots",
+                                             command=self.toggle_visualization_window)
+        self.toggle_plots_button.pack(side="left", padx=5)
+
+    def create_visualization_window(self):
+        """Create separate window for visualization with large plots"""
+        if self.viz_window is not None and tk.Toplevel.winfo_exists(self.viz_window):
+            self.viz_window.lift()
+            return
+
+        # Create new top-level window
+        self.viz_window = tk.Toplevel(self.root)
+        self.viz_window.title("Example 9.7: Real-Time Visualization")
+        self.viz_window.geometry("1600x1000")
+
+        # Make window resizable
+        self.viz_window.rowconfigure(0, weight=1)
+        self.viz_window.columnconfigure(0, weight=1)
+
+        # Create frame for canvas
+        viz_frame = ttk.Frame(self.viz_window)
+        viz_frame.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
         viz_frame.rowconfigure(0, weight=1)
         viz_frame.columnconfigure(0, weight=1)
 
-        # Create figure with subplots
-        self.fig = Figure(figsize=(14, 6), dpi=100)
+        # Create figure with larger size for better visibility
+        self.fig = Figure(figsize=(16, 10), dpi=100)
         self.fig.patch.set_facecolor('#f0f0f0')
 
-        # Create 2x3 grid of subplots
+        # Create 2x3 grid of subplots with more spacing
         self.ax1 = self.fig.add_subplot(231)
         self.ax2 = self.fig.add_subplot(232)
         self.ax3 = self.fig.add_subplot(233)
@@ -182,24 +212,57 @@ class PowerFactorCorrectionSimulator:
         self.ax5 = self.fig.add_subplot(235)
         self.ax6 = self.fig.add_subplot(236)
 
-        self.fig.tight_layout(pad=3.0)
+        self.fig.tight_layout(pad=4.0)
 
         # Create canvas
         self.canvas = FigureCanvasTkAgg(self.fig, master=viz_frame)
         self.canvas.draw()
         self.canvas.get_tk_widget().grid(row=0, column=0, sticky="nsew")
 
+        # Add scrollbar if needed
+        scrollbar_y = ttk.Scrollbar(viz_frame, orient="vertical")
+        scrollbar_y.grid(row=0, column=1, sticky="ns")
+
         # Initialize plots
         self.init_plots()
+
+        # Update button text
+        self.toggle_plots_button.config(text="Hide Plots")
+
+        # Handle window close event
+        self.viz_window.protocol("WM_DELETE_WINDOW", self.on_viz_window_close)
+
+        # Bind resize event
+        self.viz_window.bind('<Configure>', self.on_viz_resize)
+
+    def on_viz_window_close(self):
+        """Handle visualization window close event"""
+        if self.viz_window:
+            self.viz_window.withdraw()
+            self.toggle_plots_button.config(text="Show Plots")
+
+    def toggle_visualization_window(self):
+        """Toggle visibility of visualization window"""
+        if self.viz_window is None or not tk.Toplevel.winfo_exists(self.viz_window):
+            self.create_visualization_window()
+        else:
+            if self.viz_window.state() == 'normal':
+                self.viz_window.withdraw()
+                self.toggle_plots_button.config(text="Show Plots")
+            else:
+                self.viz_window.deiconify()
+                self.toggle_plots_button.config(text="Hide Plots")
 
     def create_results_panel(self):
         """Create results panel showing calculated values"""
         results_frame = ttk.LabelFrame(self.main_container, text="Calculation Results", padding=10)
-        results_frame.grid(row=2, column=0, sticky="ew", padx=5, pady=5)
+        results_frame.grid(row=1, column=0, sticky="nsew", padx=5, pady=5)
+        results_frame.rowconfigure(0, weight=1)
+        results_frame.columnconfigure(0, weight=1)
 
         # Create text widget for results
-        self.results_text = tk.Text(results_frame, height=8, width=100, font=('Courier', 10))
-        self.results_text.grid(row=0, column=0, sticky="ew")
+        self.results_text = tk.Text(results_frame, height=20, width=100, font=('Courier', 10))
+        self.results_text.grid(row=0, column=0, sticky="nsew")
 
         # Add scrollbar
         scrollbar = ttk.Scrollbar(results_frame, orient="vertical", command=self.results_text.yview)
@@ -207,44 +270,53 @@ class PowerFactorCorrectionSimulator:
         self.results_text.configure(yscrollcommand=scrollbar.set)
 
     def init_plots(self):
-        """Initialize all plot axes"""
+        """Initialize all plot axes with larger fonts"""
+        if self.ax1 is None:
+            return
+
         # Power Factor vs Time
-        self.ax1.set_title('Power Factor vs Time', fontsize=10, fontweight='bold')
-        self.ax1.set_xlabel('Time (s)', fontsize=9)
-        self.ax1.set_ylabel('Power Factor', fontsize=9)
-        self.ax1.grid(True, alpha=0.3)
+        self.ax1.set_title('Power Factor vs Time', fontsize=14, fontweight='bold')
+        self.ax1.set_xlabel('Time (s)', fontsize=12)
+        self.ax1.set_ylabel('Power Factor', fontsize=12)
+        self.ax1.grid(True, alpha=0.3, linewidth=1.5)
         self.ax1.set_ylim([0, 1.1])
+        self.ax1.tick_params(labelsize=10)
 
         # Real Power vs Time
-        self.ax2.set_title('Real Power vs Time', fontsize=10, fontweight='bold')
-        self.ax2.set_xlabel('Time (s)', fontsize=9)
-        self.ax2.set_ylabel('Power (kW)', fontsize=9)
-        self.ax2.grid(True, alpha=0.3)
+        self.ax2.set_title('Real Power vs Time', fontsize=14, fontweight='bold')
+        self.ax2.set_xlabel('Time (s)', fontsize=12)
+        self.ax2.set_ylabel('Power (kW)', fontsize=12)
+        self.ax2.grid(True, alpha=0.3, linewidth=1.5)
+        self.ax2.tick_params(labelsize=10)
 
         # Reactive Power vs Time
-        self.ax3.set_title('Reactive Power vs Time', fontsize=10, fontweight='bold')
-        self.ax3.set_xlabel('Time (s)', fontsize=9)
-        self.ax3.set_ylabel('Reactive Power (kVAr)', fontsize=9)
-        self.ax3.grid(True, alpha=0.3)
+        self.ax3.set_title('Reactive Power vs Time', fontsize=14, fontweight='bold')
+        self.ax3.set_xlabel('Time (s)', fontsize=12)
+        self.ax3.set_ylabel('Reactive Power (kVAr)', fontsize=12)
+        self.ax3.grid(True, alpha=0.3, linewidth=1.5)
+        self.ax3.tick_params(labelsize=10)
 
         # Capacitance vs Time
-        self.ax4.set_title('Capacitance per Phase vs Time', fontsize=10, fontweight='bold')
-        self.ax4.set_xlabel('Time (s)', fontsize=9)
-        self.ax4.set_ylabel('Capacitance (μF)', fontsize=9)
-        self.ax4.grid(True, alpha=0.3)
+        self.ax4.set_title('Capacitance per Phase vs Time', fontsize=14, fontweight='bold')
+        self.ax4.set_xlabel('Time (s)', fontsize=12)
+        self.ax4.set_ylabel('Capacitance (μF)', fontsize=12)
+        self.ax4.grid(True, alpha=0.3, linewidth=1.5)
+        self.ax4.tick_params(labelsize=10)
 
         # Capacitor Current vs Time
-        self.ax5.set_title('Capacitor Current vs Time', fontsize=10, fontweight='bold')
-        self.ax5.set_xlabel('Time (s)', fontsize=9)
-        self.ax5.set_ylabel('Current (A)', fontsize=9)
-        self.ax5.grid(True, alpha=0.3)
+        self.ax5.set_title('Capacitor Current vs Time', fontsize=14, fontweight='bold')
+        self.ax5.set_xlabel('Time (s)', fontsize=12)
+        self.ax5.set_ylabel('Current (A)', fontsize=12)
+        self.ax5.grid(True, alpha=0.3, linewidth=1.5)
+        self.ax5.tick_params(labelsize=10)
 
         # Power Triangle (Phasor Diagram)
-        self.ax6.set_title('Power Triangle', fontsize=10, fontweight='bold')
-        self.ax6.set_xlabel('Real Power (kW)', fontsize=9)
-        self.ax6.set_ylabel('Reactive Power (kVAr)', fontsize=9)
-        self.ax6.grid(True, alpha=0.3)
+        self.ax6.set_title('Power Triangle', fontsize=14, fontweight='bold')
+        self.ax6.set_xlabel('Real Power (kW)', fontsize=12)
+        self.ax6.set_ylabel('Reactive Power (kVAr)', fontsize=12)
+        self.ax6.grid(True, alpha=0.3, linewidth=1.5)
         self.ax6.set_aspect('equal')
+        self.ax6.tick_params(labelsize=10)
 
     def update_calculations(self):
         """Update all calculations based on current slider values"""
@@ -333,6 +405,18 @@ VERIFICATION:
   kVAr Check                : {omega * C_phase_farad * v_ph * v_ph / 1000:.2f} kVAr (should equal {kvar_per_phase:.2f} kVAr)
   Apparent Power @ PF={pf1}: {motor_input_kw / pf1:.2f} kVA
   Apparent Power @ PF={pf2}: {motor_input_kw / pf2:.2f} kVA
+
+POWER TRIANGLE ANALYSIS:
+  Initial Reactive Power Q₁ : {motor_input_kw * tan_phi1:.2f} kVAr (lagging)
+  Final Reactive Power Q₂   : {motor_input_kw * tan_phi2:.2f} kVAr
+  Capacitive kVAr Required  : {kvar_total:.2f} kVAr (leading)
+
+CAPACITOR BANK CONFIGURATION:
+  Connection Type           : Delta (Δ)
+  Number of Phases          : 3
+  Capacitors per Phase      : {n_capacitors} in series
+  Voltage Rating per Cap    : {voltage / n_capacitors:.2f} V
+  Total Capacitor Units     : {3 * n_capacitors}
 ╚══════════════════════════════════════════════════════════════════════════════════════════════════╝
 """
 
@@ -391,6 +475,13 @@ VERIFICATION:
         self.is_running = True
         self.start_button.config(state="disabled")
         self.stop_button.config(state="normal")
+
+        # Make sure visualization window is open
+        if self.viz_window is None or not tk.Toplevel.winfo_exists(self.viz_window):
+            self.create_visualization_window()
+        elif self.viz_window.state() != 'normal':
+            self.viz_window.deiconify()
+            self.toggle_plots_button.config(text="Hide Plots")
 
         # Reset data
         self.time_data = []
@@ -460,17 +551,22 @@ VERIFICATION:
         self.capacitance_data = []
         self.current_data = []
 
-        # Clear all plots
-        for ax in [self.ax1, self.ax2, self.ax3, self.ax4, self.ax5, self.ax6]:
-            ax.clear()
+        # Clear all plots if they exist
+        if self.ax1 is not None:
+            for ax in [self.ax1, self.ax2, self.ax3, self.ax4, self.ax5, self.ax6]:
+                ax.clear()
 
-        self.init_plots()
-        self.canvas.draw()
+            self.init_plots()
+            if self.canvas:
+                self.canvas.draw()
 
     def animate_plots(self):
         """Animate the plots with simulation data"""
         if not self.is_running or len(self.time_data) == 0:
             return
+
+        if self.ax1 is None:
+            self.create_visualization_window()
 
         # Clear previous plots
         self.ax1.clear()
@@ -483,30 +579,30 @@ VERIFICATION:
         # Reinitialize plot settings
         self.init_plots()
 
-        # Plot Power Factor
-        self.ax1.plot(self.time_data, self.pf_data, 'b-', linewidth=2, label='Power Factor')
+        # Plot Power Factor with thicker lines
+        self.ax1.plot(self.time_data, self.pf_data, 'b-', linewidth=3, label='Power Factor')
         self.ax1.axhline(y=self.pf_final_var.get(), color='r', linestyle='--',
-                        linewidth=1, label=f'Target: {self.pf_final_var.get():.2f}')
-        self.ax1.legend(fontsize=8)
+                        linewidth=2, label=f'Target: {self.pf_final_var.get():.2f}')
+        self.ax1.legend(fontsize=11, loc='best')
 
         # Plot Real Power
-        self.ax2.plot(self.time_data, self.power_data, 'g-', linewidth=2, label='Real Power')
-        self.ax2.legend(fontsize=8)
+        self.ax2.plot(self.time_data, self.power_data, 'g-', linewidth=3, label='Real Power')
+        self.ax2.legend(fontsize=11, loc='best')
 
         # Plot Reactive Power
-        self.ax3.plot(self.time_data, self.reactive_power_data, 'r-', linewidth=2, label='Reactive Power')
-        self.ax3.axhline(y=0, color='k', linestyle='-', linewidth=0.5)
-        self.ax3.legend(fontsize=8)
+        self.ax3.plot(self.time_data, self.reactive_power_data, 'r-', linewidth=3, label='Reactive Power')
+        self.ax3.axhline(y=0, color='k', linestyle='-', linewidth=1)
+        self.ax3.legend(fontsize=11, loc='best')
 
         # Plot Capacitance
-        self.ax4.plot(self.time_data, self.capacitance_data, 'm-', linewidth=2, label='Capacitance')
+        self.ax4.plot(self.time_data, self.capacitance_data, 'm-', linewidth=3, label='Capacitance')
         self.ax4.axhline(y=self.C_phase_uf, color='r', linestyle='--',
-                        linewidth=1, label=f'Target: {self.C_phase_uf:.2f} μF')
-        self.ax4.legend(fontsize=8)
+                        linewidth=2, label=f'Target: {self.C_phase_uf:.2f} μF')
+        self.ax4.legend(fontsize=11, loc='best')
 
         # Plot Capacitor Current
-        self.ax5.plot(self.time_data, self.current_data, 'c-', linewidth=2, label='Capacitor Current')
-        self.ax5.legend(fontsize=8)
+        self.ax5.plot(self.time_data, self.current_data, 'c-', linewidth=3, label='Capacitor Current')
+        self.ax5.legend(fontsize=11, loc='best')
 
         # Plot Power Triangle (animated)
         # Show initial and final states
@@ -515,21 +611,21 @@ VERIFICATION:
         Q_final = P * math.tan(self.phi2)
 
         # Initial state
-        self.ax6.arrow(0, 0, P, 0, head_width=20, head_length=10, fc='green', ec='green', linewidth=2)
-        self.ax6.arrow(0, 0, 0, Q_initial, head_width=10, head_length=10, fc='red', ec='red', linewidth=2, alpha=0.5)
-        self.ax6.plot([0, P], [0, Q_initial], 'b--', linewidth=1, alpha=0.5, label=f'Initial PF={self.pf_initial_var.get():.2f}')
+        self.ax6.arrow(0, 0, P, 0, head_width=30, head_length=20, fc='green', ec='green', linewidth=3)
+        self.ax6.arrow(0, 0, 0, Q_initial, head_width=20, head_length=15, fc='red', ec='red', linewidth=3, alpha=0.5)
+        self.ax6.plot([0, P], [0, Q_initial], 'b--', linewidth=2, alpha=0.5, label=f'Initial PF={self.pf_initial_var.get():.2f}')
 
         # Final state
-        self.ax6.arrow(0, 0, 0, Q_final, head_width=10, head_length=10, fc='orange', ec='orange', linewidth=2)
-        self.ax6.plot([0, P], [0, Q_final], 'g-', linewidth=2, label=f'Final PF={self.pf_final_var.get():.2f}')
+        self.ax6.arrow(0, 0, 0, Q_final, head_width=20, head_length=15, fc='orange', ec='orange', linewidth=3)
+        self.ax6.plot([0, P], [0, Q_final], 'g-', linewidth=3, label=f'Final PF={self.pf_final_var.get():.2f}')
 
         # Capacitor kVAr
-        self.ax6.arrow(P*0.8, Q_initial, 0, Q_final - Q_initial, head_width=10, head_length=10,
-                      fc='purple', ec='purple', linewidth=2, linestyle='--', alpha=0.7)
+        self.ax6.arrow(P*0.8, Q_initial, 0, Q_final - Q_initial, head_width=20, head_length=15,
+                      fc='purple', ec='purple', linewidth=3, linestyle='--', alpha=0.7)
 
-        self.ax6.text(P/2, -50, 'Real Power (P)', ha='center', fontsize=9)
-        self.ax6.text(-50, Q_initial/2, 'Reactive\nPower (Q)', ha='center', fontsize=9)
-        self.ax6.legend(fontsize=8, loc='upper right')
+        self.ax6.text(P/2, -50, 'Real Power (P)', ha='center', fontsize=12, fontweight='bold')
+        self.ax6.text(-50, Q_initial/2, 'Reactive\nPower (Q)', ha='center', fontsize=12, fontweight='bold')
+        self.ax6.legend(fontsize=11, loc='upper right')
 
         # Adjust plot limits
         max_Q = max(abs(Q_initial), abs(Q_final)) * 1.2
@@ -537,16 +633,21 @@ VERIFICATION:
         self.ax6.set_ylim([-max_Q*0.1, max_Q])
 
         # Update canvas
-        self.fig.tight_layout(pad=3.0)
+        self.fig.tight_layout(pad=4.0)
         self.canvas.draw()
 
         self.stop_simulation()
 
     def on_resize(self, event):
-        """Handle window resize event"""
+        """Handle window resize event for main window"""
+        pass  # Main window handles resize automatically
+
+    def on_viz_resize(self, event):
+        """Handle window resize event for visualization window"""
         try:
-            self.fig.tight_layout(pad=3.0)
-            self.canvas.draw()
+            if self.fig and self.canvas:
+                self.fig.tight_layout(pad=4.0)
+                self.canvas.draw()
         except Exception:
             pass  # Ignore errors during resize
 

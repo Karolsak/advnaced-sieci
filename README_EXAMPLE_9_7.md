@@ -12,7 +12,14 @@ A 3-phase, 50 Hz, 2,500 V motor develops 600 HP with:
 
 ## Features
 
-### 1. **Interactive Sliders**
+### 1. **Separate Windows for Better Visibility**
+- **Control Panel Window**: Contains all sliders, buttons, and calculation results
+- **Visualization Window**: Large separate window (1600x1000) dedicated to plots
+- Show/Hide plots button to toggle visualization window
+- Independent window resizing for both windows
+- Plots are much larger and easier to read
+
+### 2. **Interactive Sliders**
 Adjust parameters in real-time:
 - Motor Output Power (HP): 100 - 1500 HP
 - Supply Voltage: 1000 - 5000 V
@@ -23,18 +30,19 @@ Adjust parameters in real-time:
 - Capacitors in Series: 1 - 10
 - Simulation Time: 1 - 20 seconds
 
-### 2. **Automatic Window Resizing**
-- Responsive GUI that adjusts to window size changes
-- Dynamic graph resizing
+### 3. **Automatic Window Resizing**
+- Both windows are fully resizable
+- Dynamic graph resizing in visualization window
 - Optimized layout for different screen sizes
+- Plots automatically adjust to window size
 
-### 3. **Multiple ODE Solvers**
+### 4. **Multiple ODE Solvers**
 Two numerical methods for dynamic simulation:
 - **RK45 (Runge-Kutta 4th/5th order)**: High accuracy, adaptive step size
 - **Euler Method**: Simple, fixed step size
 
-### 4. **Real-Time Visualization**
-Six dynamic graphs showing:
+### 5. **Real-Time Visualization**
+Six dynamic graphs showing (in large separate window):
 1. **Power Factor vs Time**: Shows transition from initial to final PF
 2. **Real Power vs Time**: Constant active power consumption
 3. **Reactive Power vs Time**: Shows reduction with capacitor addition
@@ -42,8 +50,8 @@ Six dynamic graphs showing:
 5. **Capacitor Current vs Time**: Current through capacitor bank
 6. **Power Triangle**: Visual phasor diagram showing P, Q relationship
 
-### 5. **Comprehensive Calculations**
-Displays detailed results:
+### 6. **Comprehensive Calculations**
+Displays detailed results in main window:
 - Motor input power (kW)
 - Total leading kVAr required
 - kVAr per phase (delta connection)
@@ -86,10 +94,16 @@ python3 verify_example_9_7.py
 
 ## How to Use the GUI
 
+### When You Start the Application:
+Two windows will open:
+1. **Control Panel Window** (900x650): Contains sliders, buttons, and results
+2. **Visualization Window** (1600x1000): Shows large, detailed plots
+
 ### Step 1: Adjust Parameters
-- Use sliders to adjust motor parameters
+- Use sliders in Control Panel to adjust motor parameters
 - Real-time calculation updates shown in results panel
 - All values validated and clamped to safe ranges
+- Plots window can be shown/hidden with "Show/Hide Plots" button
 
 ### Step 2: Configure Simulation
 - Select ODE solver (RK45 or Euler)
@@ -98,14 +112,16 @@ python3 verify_example_9_7.py
 
 ### Step 3: Run Simulation
 - Click "Start Simulation" button
-- Watch real-time graphs animate
+- Visualization window automatically opens if hidden
+- Watch real-time graphs animate in the large plots window
 - Dynamic visualization of power factor correction process
 - Stop or reset simulation anytime
 
 ### Step 4: Analyze Results
-- View detailed calculations in results panel
-- Compare initial and final states in power triangle
+- View detailed calculations in Control Panel results area
+- Compare initial and final states in power triangle (in Visualization Window)
 - Observe transient behavior in time-domain plots
+- Resize either window as needed for optimal viewing
 
 ## Technical Details
 
@@ -180,15 +196,17 @@ example_9_7_dynamic_solver.py
 
 ## Features Implemented
 
-- ✅ Automatic width and height adjustment when window changes
-- ✅ Interactive sliders for all parameters
-- ✅ Dynamic simulation with real-time updates
-- ✅ ODE solver implementation (RK45 and Euler)
-- ✅ Results visualization with 6 dynamic graphs
-- ✅ Comprehensive calculations matching textbook
-- ✅ Syntax error checking and validation
-- ✅ Professional GUI layout
-- ✅ Responsive design
+- ✅ **Separate visualization window** with large plots (1600x1000 pixels)
+- ✅ **Automatic width and height adjustment** when windows are resized
+- ✅ **Interactive sliders** for all parameters
+- ✅ **Dynamic simulation** with real-time updates
+- ✅ **ODE solver implementation** (RK45 and Euler methods)
+- ✅ **Results visualization** with 6 large, detailed dynamic graphs
+- ✅ **Comprehensive calculations** matching textbook Example 9.7
+- ✅ **Syntax error checking** and validation
+- ✅ **Professional dual-window GUI layout**
+- ✅ **Responsive design** with show/hide plots functionality
+- ✅ **Larger fonts and thicker lines** for better plot visibility
 
 ## Error Handling
 
