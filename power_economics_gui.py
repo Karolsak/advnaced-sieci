@@ -47,6 +47,55 @@ def calculate_break_even_load_factor(
     return max(0.0, min(load_factor, 1.0))
 
 
+def tariff_payments(
+    demand_kw: float,
+    power_factor: float,
+    hours_per_day: float,
+    days_per_year: float,
+    energy_rate_paise: float,
+    kva_charge_rs: float,
+    kw_charge_rs: float,
+    kvarh_rate_paise: float,
+) -> dict:
+    """Calculate annual charges for two illustrative tariff structures.
+
+    The first structure bills energy at ``energy_rate_paise`` (paise/kWh)
+    and applies ``kva_charge_rs`` per kVA annually. The second adds a kW
+    demand component and a kVARh energy component.
+    """
+
+    if demand_kw <= 0 or power_factor <= 0 or hours_per_day <= 0 or days_per_year <= 0:
+        return {
+            "energy_kwh": 0.0,
+            "demand_kva": 0.0,
+            "reactive_kvar": 0.0,
+            "tariff_i": 0.0,
+            "tariff_ii": 0.0,
+            "components": (0.0, 0.0, 0.0),
+        }
+
+    annual_kwh = demand_kw * hours_per_day * days_per_year
+    demand_kva = demand_kw / max(power_factor, 1e-6)
+    kvar = demand_kva * np.sqrt(max(0.0, 1.0 - power_factor**2))
+    annual_kvarh = kvar * hours_per_day * days_per_year
+
+    energy_rs = annual_kwh * (energy_rate_paise / 100.0)
+    tariff_i = energy_rs + demand_kva * kva_charge_rs
+
+    demand_rs = demand_kw * kw_charge_rs
+    reactive_rs = annual_kvarh * (kvarh_rate_paise / 100.0)
+    tariff_ii = energy_rs + demand_rs + reactive_rs
+
+    return {
+        "energy_kwh": annual_kwh,
+        "demand_kva": demand_kva,
+        "reactive_kvar": kvar,
+        "tariff_i": tariff_i,
+        "tariff_ii": tariff_ii,
+        "components": (energy_rs, demand_rs, reactive_rs),
+    }
+
+
 def overall_cost_per_unit(
     md_mw: float,
     load_factor: float,
@@ -129,6 +178,14 @@ class PowerEconomicsSimulator(tk.Tk):
             "nuclear_capital_kw": tk.DoubleVar(value=2000.0),
             "nuclear_fixed_pct": tk.DoubleVar(value=12.0),
             "nuclear_operating_paise": tk.DoubleVar(value=2.0),
+            "consumer_kw": tk.DoubleVar(value=200.0),
+            "consumer_pf": tk.DoubleVar(value=0.8),
+            "consumer_hours": tk.DoubleVar(value=10.0),
+            "consumer_days": tk.DoubleVar(value=300.0),
+            "energy_rate": tk.DoubleVar(value=10.0),
+            "kva_charge": tk.DoubleVar(value=100.0),
+            "kw_charge": tk.DoubleVar(value=100.0),
+            "kvarh_rate": tk.DoubleVar(value=2.0),
         }
 
         self._build_layout()
@@ -146,6 +203,7 @@ class PowerEconomicsSimulator(tk.Tk):
 
         self._update_break_even_display()
         self._update_cost_comparison()
+        self._update_tariff_summary()
 
     def _build_layout(self):
         self.columnconfigure(0, weight=1)
@@ -231,13 +289,54 @@ class PowerEconomicsSimulator(tk.Tk):
             input_frame, "Nuclear Operating (paise/kWh)", "nuclear_operating_paise", 0.5, 5.0, 23
         )
 
+        ttk.Separator(input_frame, orient=tk.HORIZONTAL).grid(
+            row=24, column=0, columnspan=3, sticky="ew", pady=6
+        )
+
+        tariff_label = ttk.Label(
+            input_frame,
+            text="Consumer Tariff Estimator",
+            font=("Helvetica", 12, "bold"),
+        )
+        tariff_label.grid(row=25, column=0, columnspan=3, pady=(4, 2), sticky="w")
+
+        self._add_slider(input_frame, "Demand (kW)", "consumer_kw", 50, 500, 26)
+        self._add_slider(
+            input_frame, "Power Factor", "consumer_pf", 0.5, 1.0, 27
+        )
+        self._add_slider(
+            input_frame, "Hours per Day", "consumer_hours", 1, 24, 28
+        )
+        self._add_slider(
+            input_frame, "Days per Year", "consumer_days", 50, 365, 29
+        )
+        self._add_slider(
+            input_frame, "Energy Rate (p/kWh)", "energy_rate", 2, 20, 30
+        )
+        self._add_slider(
+            input_frame, "kVA Charge (Rs/kVA-yr)", "kva_charge", 20, 200, 31
+        )
+        self._add_slider(input_frame, "kW Charge (Rs/kW-yr)", "kw_charge", 20, 200, 32)
+        self._add_slider(
+            input_frame, "kVARh Rate (p/kVARh)", "kvarh_rate", 0.5, 10.0, 33
+        )
+
+        self.tariff_var = tk.StringVar()
+        ttk.Label(
+            input_frame,
+            textvariable=self.tariff_var,
+            justify=tk.LEFT,
+            font=("Helvetica", 10),
+            foreground="purple",
+        ).grid(row=34, column=0, columnspan=3, sticky="ew", pady=4)
+
         self.break_even_var = tk.StringVar()
         ttk.Label(
             input_frame,
             textvariable=self.break_even_var,
             font=("Helvetica", 12, "bold"),
             foreground="blue",
-        ).grid(row=24, column=0, columnspan=3, sticky="ew", pady=8)
+        ).grid(row=35, column=0, columnspan=3, sticky="ew", pady=8)
 
         self.compare_var = tk.StringVar()
         ttk.Label(
@@ -246,7 +345,7 @@ class PowerEconomicsSimulator(tk.Tk):
             justify=tk.LEFT,
             font=("Helvetica", 10),
             foreground="darkgreen",
-        ).grid(row=25, column=0, columnspan=3, sticky="ew", pady=4)
+        ).grid(row=36, column=0, columnspan=3, sticky="ew", pady=4)
 
         self.solver_choice = tk.StringVar(value="RK45")
         control_frame = ttk.Frame(sim_frame)
@@ -290,8 +389,10 @@ class PowerEconomicsSimulator(tk.Tk):
 
     def _create_plot(self):
         self.figure = Figure(figsize=(6, 5))
-        self.ax_delta = self.figure.add_subplot(211)
-        self.ax_omega = self.figure.add_subplot(212)
+        grid = self.figure.add_gridspec(3, 1, height_ratios=[1.1, 1.0, 0.8])
+        self.ax_delta = self.figure.add_subplot(grid[0])
+        self.ax_omega = self.figure.add_subplot(grid[1])
+        self.ax_tariff = self.figure.add_subplot(grid[2])
         self.ax_delta.set_ylabel("Rotor Angle (rad)")
         self.ax_omega.set_ylabel("Speed Deviation (pu)")
         self.ax_omega.set_xlabel("Time (s)")
@@ -301,15 +402,26 @@ class PowerEconomicsSimulator(tk.Tk):
         self.ax_delta.legend()
         self.ax_omega.legend()
 
+        self.tariff_bars = self.ax_tariff.bar(
+            ["Energy", "Demand", "Reactive"],
+            [0, 0, 0],
+            color=["#4c72b0", "#55a868", "#c44e52"],
+        )
+        self.ax_tariff.set_ylabel("Rs/year")
+        self.ax_tariff.set_title("Tariff Components")
+
+        self.figure.subplots_adjust(hspace=0.35)
+
         self.canvas = FigureCanvasTkAgg(self.figure, master=self.sim_frame)
         self.canvas.draw()
         self.canvas.get_tk_widget().grid(row=1, column=0, sticky="nsew")
 
     def _configure_resizing(self):
         self.rowconfigure(1, weight=1)
-        self.bind("<Configure>", lambda _event: self._redraw())
+        self.bind("<Configure>", lambda event: self._redraw())
 
     def _redraw(self):
+        self.figure.tight_layout()
         self.canvas.draw_idle()
 
     def _update_break_even_display(self):
@@ -404,6 +516,7 @@ class PowerEconomicsSimulator(tk.Tk):
     def _on_input_change(self):
         self._update_break_even_display()
         self._update_cost_comparison()
+        self._update_tariff_summary()
 
     def start_sim(self):
         if self.sim_running:
@@ -458,6 +571,43 @@ class PowerEconomicsSimulator(tk.Tk):
             ax.relim()
             ax.autoscale_view()
         self.canvas.draw_idle()
+
+    def _update_tariff_summary(self):
+        result = tariff_payments(
+            self.parameters["consumer_kw"].get(),
+            self.parameters["consumer_pf"].get(),
+            self.parameters["consumer_hours"].get(),
+            self.parameters["consumer_days"].get(),
+            self.parameters["energy_rate"].get(),
+            self.parameters["kva_charge"].get(),
+            self.parameters["kw_charge"].get(),
+            self.parameters["kvarh_rate"].get(),
+        )
+
+        energy_rs, demand_rs, reactive_rs = result["components"]
+        self.tariff_var.set(
+            "\n".join(
+                [
+                    f"Annual energy: {result['energy_kwh']:.0f} kWh",
+                    f"Peak demand: {result['demand_kva']:.1f} kVA, reactive: {result['reactive_kvar']:.1f} kVAr",
+                    f"Tariff (i): Rs {result['tariff_i']:.0f}",
+                    (
+                        "Tariff (ii): Rs "
+                        f"{result['tariff_ii']:.0f} (Energy {energy_rs:.0f} + Demand {demand_rs:.0f} + Reactive {reactive_rs:.0f})"
+                    ),
+                ]
+            )
+        )
+        self._update_tariff_plot(energy_rs, demand_rs, reactive_rs)
+
+    def _update_tariff_plot(self, energy_rs: float, demand_rs: float, reactive_rs: float):
+        values = [energy_rs, demand_rs, reactive_rs]
+        for bar, val in zip(self.tariff_bars, values):
+            bar.set_height(val)
+        self.ax_tariff.relim()
+        self.ax_tariff.autoscale_view()
+        self.canvas.draw_idle()
+
 
 
 def main():
